@@ -1,13 +1,19 @@
 import dash
-from dash import dcc
-from dash import html
 import pandas as pd
 import numpy as np
+from dash import dcc
+from dash import html
 from dash.dependencies import Output, Input
 
-data = pd.read_csv("avocado.csv")
-data["Date"] = pd.to_datetime(data["Date"], format="%Y-%m-%d")
+data = pd.read_csv("data.csv")
+
+data["Date"] = pd.to_datetime(data['CreateDate']).dt.strftime('%Y-%m-%dT%H:%M:%S.%f')
+data["Date"] = pd.to_datetime(data['Date'])
 data.sort_values("Date", inplace=True)
+
+data["Datenew"] = pd.to_datetime(data['CreateDate']).dt.strftime('%Y-%m-%d')
+data["Datenew"] = pd.to_datetime(data['Datenew'])
+
 
 external_stylesheets = [
     {
@@ -18,20 +24,17 @@ external_stylesheets = [
 ]
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 server = app.server
-app.title = "Avocado Analytics: Understand Your Avocados!"
+app.title = "Analytics Dashboard"
 
 app.layout = html.Div(
     children=[
         html.Div(
             children=[
-                html.P(children="🥑", className="header-emoji"),
                 html.H1(
-                    children="Avocado Analytics", className="header-title"
+                    children="Analytics", className="header-title"
                 ),
                 html.P(
-                    children="Analyze the behavior of avocado prices"
-                    " and the number of avocados sold in the US"
-                    " between 2015 and 2018",
+                    children="Analyze data",
                     className="header-description",
                 ),
             ],
@@ -41,14 +44,14 @@ app.layout = html.Div(
             children=[
                 html.Div(
                     children=[
-                        html.Div(children="Region", className="menu-title"),
+                        html.Div(children="Platform", className="menu-title"),
                         dcc.Dropdown(
                             id="region-filter",
                             options=[
-                                {"label": region, "value": region}
-                                for region in np.sort(data.region.unique())
+                                {"label": DeviceType, "value": DeviceType}
+                                for DeviceType in np.sort(data.DeviceType.unique())[::-1]
                             ],
-                            value="Albany",
+                            value="PC",
                             clearable=False,
                             className="dropdown",
                         ),
@@ -56,14 +59,16 @@ app.layout = html.Div(
                 ),
                 html.Div(
                     children=[
-                        html.Div(children="Type", className="menu-title"),
+                        html.Div(children="BrowserVersion", className="menu-title"),
                         dcc.Dropdown(
                             id="type-filter",
                             options=[
-                                {"label": avocado_type, "value": avocado_type}
-                                for avocado_type in data.type.unique()
+                                {"label": BrowserMajorVersion, "value": BrowserMajorVersion}
+                                for BrowserMajorVersion in sorted(
+                                    list( data.BrowserMajorVersion.unique() ),
+                                    reverse=True)
                             ],
-                            value="organic",
+                            value="92",
                             clearable=False,
                             searchable=False,
                             className="dropdown",
@@ -99,9 +104,10 @@ app.layout = html.Div(
                 html.Div(
                     children=dcc.Graph(
                         id="volume-chart",
-                        config={"displayModeBar": False},
+                        config={"displayModeBar": True},
                     ),
                     className="card",
+                    hidden=True,
                 ),
             ],
             className="wrapper",
@@ -121,29 +127,30 @@ app.layout = html.Div(
 )
 def update_charts(region, avocado_type, start_date, end_date):
     mask = (
-        (data.region == region)
-        & (data.type == avocado_type)
+        (data.DeviceType.isin( [region] ))
+        & (data.BrowserMajorVersion == avocado_type)
         & (data.Date >= start_date)
         & (data.Date <= end_date)
     )
+
     filtered_data = data.loc[mask, :]
     price_chart_figure = {
         "data": [
             {
                 "x": filtered_data["Date"],
-                "y": filtered_data["AveragePrice"],
+                "y": filtered_data["Id"].count(),
                 "type": "lines",
-                "hovertemplate": "$%{y:.2f}<extra></extra>",
+                "hovertemplate": "%{y:.2f}<extra></extra>",
             },
         ],
         "layout": {
             "title": {
-                "text": "Average Price of Avocados",
+                "text": "User count",
                 "x": 0.05,
                 "xanchor": "left",
             },
             "xaxis": {"fixedrange": True},
-            "yaxis": {"tickprefix": "$", "fixedrange": True},
+            "yaxis": {"tickprefix": "", "fixedrange": True},
             "colorway": ["#17B897"],
         },
     }
@@ -151,13 +158,16 @@ def update_charts(region, avocado_type, start_date, end_date):
     volume_chart_figure = {
         "data": [
             {
-                "x": filtered_data["Date"],
-                "y": filtered_data["Total Volume"],
-                "type": "lines",
+                "x": filtered_data["Datenew"].values,
+                "y": filtered_data.groupby('Datenew').agg(
+                    # Get sum of the duration column for each group
+                    total_duration=('ScreenPixelsWidth', sum),
+                )['total_duration'],
+                "type": "bars",
             },
         ],
         "layout": {
-            "title": {"text": "Avocados Sold", "x": 0.05, "xanchor": "left"},
+            "title": {"text": "ScreenOutByRuleId Count", "x": 0.05, "xanchor": "left"},
             "xaxis": {"fixedrange": True},
             "yaxis": {"fixedrange": True},
             "colorway": ["#E12D39"],
@@ -167,4 +177,4 @@ def update_charts(region, avocado_type, start_date, end_date):
 
 
 if __name__ == "__main__":
-    app.run_server(debug=True)
+    app.run_server(debug=False, port=8050)
