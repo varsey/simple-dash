@@ -1,11 +1,11 @@
 import dash
-from dash import dcc
-from dash import html
 import pandas as pd
 import numpy as np
+from dash import dcc
+from dash import html
 from dash.dependencies import Output, Input
 
-data = pd.read_csv("avocado1_.csv")
+data = pd.read_csv("data.csv")
 data["Date"] = pd.to_datetime(data['CreateDate']).dt.strftime('%Y-%m-%dT%H:%M:%S.%f')
 data["Date"] = pd.to_datetime(data['Date'])
 data["Datenew"]  =  pd.to_datetime(data['CreateDate']).dt.strftime('%Y-%m-%d')
@@ -21,19 +21,17 @@ external_stylesheets = [
 ]
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 server = app.server
-app.title = "Sample Analytics: Understand Your Data!"
+app.title = "Analytics Dashboard"
 
 app.layout = html.Div(
     children=[
         html.Div(
             children=[
-                #html.P(children="🥑", className="header-emoji"),
                 html.H1(
-                    children="Sample Analytics", className="header-title"
+                    children="Analytics", className="header-title"
                 ),
                 html.P(
-                    children="Analyze some data"
-                    " between 2017 and 2021",
+                    children="Analyze data",
                     className="header-description",
                 ),
             ],
@@ -48,9 +46,9 @@ app.layout = html.Div(
                             id="region-filter",
                             options=[
                                 {"label": DeviceType, "value": DeviceType}
-                                for DeviceType in np.sort(data.DeviceType.unique())
+                                for DeviceType in np.sort(data.DeviceType.unique())[::-1]
                             ],
-                            value="Albany",
+                            value="PC",
                             clearable=False,
                             className="dropdown",
                         ),
@@ -63,9 +61,11 @@ app.layout = html.Div(
                             id="type-filter",
                             options=[
                                 {"label": BrowserMajorVersion, "value": BrowserMajorVersion}
-                                for BrowserMajorVersion in sorted( list( data.BrowserMajorVersion.unique() ))
+                                for BrowserMajorVersion in sorted(
+                                    list( data.BrowserMajorVersion.unique() ),
+                                    reverse=True)
                             ],
-                            value="organic",
+                            value="92",
                             clearable=False,
                             searchable=False,
                             className="dropdown",
@@ -101,9 +101,10 @@ app.layout = html.Div(
                 html.Div(
                     children=dcc.Graph(
                         id="volume-chart",
-                        config={"displayModeBar": False},
+                        config={"displayModeBar": True},
                     ),
                     className="card",
+                    hidden=True,
                 ),
             ],
             className="wrapper",
@@ -123,7 +124,7 @@ app.layout = html.Div(
 )
 def update_charts(region, avocado_type, start_date, end_date):
     mask = (
-        (data.DeviceType == region)
+        (data.DeviceType.isin( [region] ))
         & (data.BrowserMajorVersion == avocado_type)
         & (data.Date >= start_date)
         & (data.Date <= end_date)
@@ -173,4 +174,4 @@ def update_charts(region, avocado_type, start_date, end_date):
 
 
 if __name__ == "__main__":
-    app.run_server(debug=True)
+    app.run_server(debug=False, port=8050)
